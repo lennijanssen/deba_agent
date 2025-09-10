@@ -20,7 +20,7 @@ PROJECT_ID = os.getenv("PROJECT_ID", "debaagent-e2d1c")
 COLLECTION_NAME = "conversation_history"
 app = FastAPI(title="Deba Agent API")
 
-# ---------------- Firestore (lazy) ----------------
+# ---------------- Firestore ----------------
 _fs_client = None
 def get_fs_client():
     global _fs_client
@@ -62,6 +62,7 @@ def build_agent_executor():
         raise RuntimeError("OPENAI_API_KEY is missing")
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=openai_key)
     agent = create_openai_tools_agent(llm, tools, prompt)
+
     # return intermediate steps so we can fall back to tool output if model doesn't speak
     return AgentExecutor(
         agent=agent,
@@ -77,6 +78,7 @@ def extract_agent_reply(result: dict) -> str:
     out = (result.get("output") or "").strip()
     if out:
         return out
+
     # 2) fallback: last tool observation
     steps = result.get("intermediate_steps") or []
     if steps:
@@ -118,7 +120,7 @@ def chat(q: ChatRequest):
         executor = build_agent_executor()
         history.add_message(HumanMessage(content=q.text))
         result = executor.invoke({"input": q.text, "chat_history": history.messages})
-        reply = extract_agent_reply(result).strip()
+        reply = extract_agent_reply(result).strip() or "..."
         history.add_message(AIMessage(content=reply))
         return ChatResponse(reply=reply)
     except Exception as e:

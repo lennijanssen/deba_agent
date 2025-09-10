@@ -74,16 +74,10 @@ def parse_data(plan: str):
         if not pt:
             continue
 
-    # time
-        dep_dt = datetime.strptime(pt, "%y%m%d%H%M")
-        hhmm = dep_dt.strftime("%H:%M")
-        if not isinstance(pt, str):
-            continue  # skip this service
-
     # category (ICE/IC/RE/RB/S/... or operator)
         cat = (tl.get("@c") or "").strip()
         if not cat:
-            continue
+            continue  # skip this service
 
     # destination: prefer @pde, else last of @ppth
         dest = dp.get("@pde")
@@ -92,7 +86,13 @@ def parse_data(plan: str):
             if path:
                 dest = path.split("|")[-1]
         if not dest:
-            continue
+            continue  # skip this service
+
+    # time
+        dep_dt = datetime.strptime(pt, "%y%m%d%H%M")
+        hhmm = dep_dt.strftime("%H:%M")
+        if not isinstance(pt, str):
+            continue  # skip this service
 
         rows.append((dep_dt, dest, hhmm, cat))
 
@@ -156,11 +156,22 @@ def db_departures(
 
     rows = parse_data(plan)
 
-    # print the table // replace later
-    print("Departures: ")
-    for _, dest, hhmm, cat, in rows:
-        print(f"{dest:<20} | {hhmm} | {cat}")
+    # ✅ Build a plain-text table and RETURN it (don’t print)
+    if not rows:
+        return f"Keine Abfahrten gefunden für {station_name} um {dt.strftime('%H:00')}."
 
+    lines = [
+        f"Abfahrten für {station_name} ({dt.strftime('%Y-%m-%d %H:00')}):",
+        "Ziel                 | Zeit  | Zug",
+        "-" * 35,
+    ]
+    for _, dest, hhmm, cat in rows[:12]:  # cap to 12 lines for readability
+        lines.append(f"{dest[:20]:<20} | {hhmm:>5} | {cat}")
+
+    if len(rows) > 12:
+        lines.append(f"... und {len(rows) - 12} weitere")
+
+    return "\n".join(lines)
 
 
 
