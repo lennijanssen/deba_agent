@@ -6,7 +6,7 @@ The aim of the debaagent project is to have an agent that proactively provides t
 
 * Seeing current timetables of any train station in Germany
 
-### The debaagent ought to include
+### The debaagent ought to include:
 
 * Delay Info (API) and Forecast (ML)
 * Weather Info (API)
