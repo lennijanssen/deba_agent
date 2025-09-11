@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel
 
 from langchain_openai import ChatOpenAI
@@ -18,7 +20,16 @@ from deba_timetable_tool import db_departures
 # ---------------- config ----------------
 PROJECT_ID = os.getenv("PROJECT_ID", "debaagent-e2d1c")
 COLLECTION_NAME = "conversation_history"
+
 app = FastAPI(title="Deba Agent API")
+
+app.add_middleware(     # enabling CORS with FastAPI
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ---------------- Firestore ----------------
 _fs_client = None
