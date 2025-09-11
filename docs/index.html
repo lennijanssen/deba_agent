@@ -1,0 +1,44 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DebaAgent</title>
+<style>
+  body{font-family:system-ui;max-width:720px;margin:40px auto;padding:0 16px}
+  #out{white-space:pre-wrap;border:1px solid #ddd;padding:12px;margin-top:16px}
+</style>
+
+<h1>DebaAgent</h1>
+<form id="f">
+  <input id="q" placeholder="Abfahrten für Hamburg Hbf" style="width:70%" />
+  <button>Send</button>
+</form>
+<pre id="out"></pre>
+
+<script>
+  // 👇 Your Cloud Run API (leave as-is except change to your exact URL)
+  const API = "https://debaagent-245061026046.europe-west1.run.app";
+  const sid = crypto.randomUUID();
+
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    out.textContent = "…";
+    try {
+      const r = await fetch(API + "/chat", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ session_id: sid, text: q.value })
+      });
+
+      // Defensive parsing so errors are readable
+      const ct = r.headers.get("content-type") || "";
+      const text = await r.text();
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0,200)}`);
+      if (!ct.includes("application/json")) throw new Error(`Non-JSON: ${text.slice(0,200)}`);
+
+      const data = JSON.parse(text);
+      out.textContent = data.reply || JSON.stringify(data, null, 2);
+    } catch (err) {
+      out.textContent = "Error: " + err.message;
+    }
+  });
+</script>
