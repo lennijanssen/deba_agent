@@ -1,44 +1,215 @@
 <!doctype html>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>DebaAgent</title>
-<style>
-  body{font-family:system-ui;max-width:720px;margin:40px auto;padding:0 16px}
-  #out{white-space:pre-wrap;border:1px solid #ddd;padding:12px;margin-top:16px}
-</style>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DebaAgent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #d5d5da; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
 
-<h1>DebaAgent</h1>
-<form id="f">
-  <input id="q" placeholder="Abfahrten für Hamburg Hbf" style="width:70%" />
-  <button>Send</button>
-</form>
-<pre id="out"></pre>
+    #app {
+      display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh;
+      max-width: 520px; margin: 0 auto;
+      background: #fff;
+    }
+
+    /* Header */
+    #header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #1a1a2e, #2d2d44);
+      color: #fff;
+      border-bottom: 3px solid #EC0016;
+      flex-shrink: 0;
+    }
+    #header .logo { font-size: 1.6rem; }
+    #header h1 { font-size: 1.15rem; font-weight: 600; line-height: 1.2; }
+    #header p { font-size: 0.75rem; color: #a0a0b8; margin-top: 1px; }
+
+    /* Chat area */
+    #chat {
+      flex: 1; overflow-y: auto; padding: 16px;
+      background: #e8e8ed;
+      scroll-behavior: smooth;
+    }
+    #chat::-webkit-scrollbar { width: 5px; }
+    #chat::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
+
+    /* Messages */
+    .message { display: flex; margin-bottom: 10px; }
+    .message.user { justify-content: flex-end; }
+    .message.bot { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 78%; padding: 10px 16px;
+      font-size: 0.92rem; line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .user .bubble {
+      background: #EC0016; color: #fff;
+      border-radius: 18px 18px 4px 18px;
+    }
+    .bot .bubble {
+      background: #f0f0f5; color: #1a1a1a;
+      border-radius: 18px 18px 18px 4px;
+    }
+
+    /* Typing indicator */
+    .typing { display: flex; align-items: center; gap: 4px; padding: 12px 18px; }
+    .typing span {
+      display: block; width: 8px; height: 8px;
+      background: #999; border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-8px); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Input bar */
+    #input-bar {
+      padding: 10px 14px;
+      background: #fff;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      flex-shrink: 0;
+    }
+    #f { display: flex; gap: 8px; align-items: center; }
+    #q {
+      flex: 1; border: 1.5px solid #ddd; border-radius: 24px;
+      padding: 10px 18px; font-size: 0.95rem;
+      font-family: inherit; outline: none;
+      transition: border-color 0.2s;
+    }
+    #q:focus { border-color: #EC0016; }
+    #q:disabled { background: #f5f5f5; }
+    #send-btn {
+      width: 42px; height: 42px; border: none; border-radius: 50%;
+      background: #EC0016; color: #fff; font-size: 1.15rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s; flex-shrink: 0;
+    }
+    #send-btn:hover { background: #c30014; }
+    #send-btn:disabled { background: #ccc; cursor: default; }
+
+    /* Desktop card style */
+    @media (min-width: 600px) {
+      #app {
+        margin: 24px auto;
+        height: calc(100vh - 48px); height: calc(100dvh - 48px);
+        border-radius: 14px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+        overflow: hidden;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <span class="logo">🚆</span>
+      <div>
+        <h1>DebaAgent</h1>
+        <p>Dein Bahn-Assistent</p>
+      </div>
+    </header>
+
+    <main id="chat">
+      <div id="messages"></div>
+    </main>
+
+    <footer id="input-bar">
+      <form id="f">
+        <input id="q" type="text" placeholder="z.B. Abfahrten für Hamburg Hbf …" autocomplete="off" />
+        <button type="submit" id="send-btn" aria-label="Senden">&#10148;</button>
+      </form>
+    </footer>
+  </div>
 
 <script>
-  // 👇 Your Cloud Run API (leave as-is except change to your exact URL)
   const API = "https://debaagent-245061026046.europe-west1.run.app";
   const sid = crypto.randomUUID();
+  const messagesEl = document.getElementById("messages");
+  const chat = document.getElementById("chat");
+  const q = document.getElementById("q");
+  const sendBtn = document.getElementById("send-btn");
+  let typingEl = null;
 
-  f.addEventListener("submit", async (e) => {
+  function scrollToBottom() {
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function appendMessage(text, sender) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "message " + sender;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+    wrapper.appendChild(bubble);
+    messagesEl.appendChild(wrapper);
+    scrollToBottom();
+  }
+
+  function showTyping() {
+    typingEl = document.createElement("div");
+    typingEl.className = "message bot";
+    typingEl.innerHTML = '<div class="bubble typing"><span></span><span></span><span></span></div>';
+    messagesEl.appendChild(typingEl);
+    scrollToBottom();
+  }
+
+  function hideTyping() {
+    if (typingEl) { typingEl.remove(); typingEl = null; }
+  }
+
+  document.getElementById("f").addEventListener("submit", async (e) => {
     e.preventDefault();
-    out.textContent = "…";
+    const text = q.value.trim();
+    if (!text) return;
+
+    appendMessage(text, "user");
+    q.value = "";
+    q.disabled = true;
+    sendBtn.disabled = true;
+    showTyping();
+
     try {
       const r = await fetch(API + "/chat", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ session_id: sid, text: q.value })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sid, text: text })
       });
-
-      // Defensive parsing so errors are readable
       const ct = r.headers.get("content-type") || "";
-      const text = await r.text();
-      if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0,200)}`);
-      if (!ct.includes("application/json")) throw new Error(`Non-JSON: ${text.slice(0,200)}`);
-
-      const data = JSON.parse(text);
-      out.textContent = data.reply || JSON.stringify(data, null, 2);
+      const raw = await r.text();
+      if (!r.ok) throw new Error("HTTP " + r.status + ": " + raw.slice(0, 200));
+      if (!ct.includes("application/json")) throw new Error("Non-JSON: " + raw.slice(0, 200));
+      const data = JSON.parse(raw);
+      hideTyping();
+      appendMessage(data.reply || JSON.stringify(data, null, 2), "bot");
     } catch (err) {
-      out.textContent = "Error: " + err.message;
+      hideTyping();
+      appendMessage("Fehler: " + err.message, "bot");
+    } finally {
+      q.disabled = false;
+      sendBtn.disabled = false;
+      q.focus();
     }
   });
+
+  // Welcome message
+  appendMessage("Hallo! 👋 Ich bin dein Bahn-Assistent. Frag mich nach Abfahrten, Verbindungen oder Zügen – z.B. \"Abfahrten für München Hbf\".", "bot");
 </script>
+</body>
+</html>
